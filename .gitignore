@@ -1,2 +1,4 @@
 Display_Demo/Debug/*
 Display_Demo/Debug/
+lib/CMSIS/Documentation
+lib/CMSIS/Documentation/*
