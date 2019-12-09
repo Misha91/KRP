@@ -19,8 +19,8 @@ void usb_init(void){
   GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
   GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-  GPIO_PinAFConfig(GPIOA, GPIO_Pin_11, GPIO_AF_OTG_FS);
-  GPIO_PinAFConfig(GPIOA, GPIO_Pin_12, GPIO_AF_OTG_FS);
+  GPIO_PinAFConfig(GPIOA, GPIO_PinSource11, GPIO_AF_OTG_FS);
+  GPIO_PinAFConfig(GPIOA, GPIO_PinSource12, GPIO_AF_OTG_FS);
 
   NVIC_InitStructure.NVIC_IRQChannel = OTG_FS_IRQn;
   NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
@@ -65,9 +65,10 @@ void usb_init(void){
  unsigned char currentMode = *( (volatile unsigned long *) OTG_FS_GINTSTS) & 0x1; // should be 0
   
   *( (volatile unsigned long *) OTG_FS_DCFG) = (1<<0) | (1<<1) ; // DSPD[1:0] = 11, | (1<<2) NZLSOHSK[2] = 1
-  *( (volatile unsigned long *) OTG_FS_GINTMSK) |= (1 << 3) | (1 << 10) | (1 << 11) | (1 << 13) | (1 << 12) ;  //
-   /*
+  *( (volatile unsigned long *) OTG_FS_GINTMSK) |= (1<< 4) | (1 << 12) | (1 << 13);//(1 << 3) | (1 << 10) | (1 << 11)  |   // 
+   /*    
     SOFM[3] = 1 , SOF
+    RXFLVLM[4] = 1,
     ESUSPM[10] = 1, EARLY SUSPEND        
     USBSUSPM[11] =1, USB SUSPEND
     USBRST[12] = 1, USB RESET
