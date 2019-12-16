@@ -3,7 +3,7 @@
 #include "Common/fonts.c"
 #include <assert.h>
 #include <stdio.h>
-
+#include <stdarg.h>
 /* tohle je vytazeno z ukazky - builder platform */
 
 typedef struct
@@ -441,6 +441,9 @@ void LCD_printLine(uint16_t row, uint16_t col, char* line, int len){
   for (i=0; i<len; i++){
     LCD_DisplayChar(row, col - i*LCD_GetFont()->Width, (uint16_t)*(line+i));
   }
+  //while(*(line++) != "\0"){
+   // LCD_DisplayChar(row, col - i*LCD_GetFont()->Width, (uint16_t)*(line+i));
+  //}
 }
 
 void LCD_ClearLine(uint16_t Line){
@@ -463,4 +466,65 @@ void LCD_printNum(uint16_t row, uint16_t col, int h){
   int n;
   n=sprintf (buffer, "%d", h);
   LCD_printLine(row, col, buffer, n);  
+}
+
+void print(char *c, ...)
+{
+    char *s;
+    int i, n;
+    char str[512];
+    char buf[512];
+    int str_iter = 0;
+    va_list lst;
+    va_start(lst, c);
+    while(*c != '\0')
+    {
+        if(*c != '%')
+        {
+            //putchar(*c);
+            str[str_iter] = *c;
+            str_iter++;
+            c++;
+            continue;
+        }
+
+        c++;
+
+        if(*c == '\0')
+        {
+            break;
+        }
+
+        switch(*c)
+        {
+            case 's': 
+              
+              n = sprintf(buf, "%s", (va_arg(lst, char *))); 
+              for (i = 0; i < n; i++)
+              {
+                str[str_iter] = buf[i];
+                str_iter++;
+              }
+              break;
+            case 'c':               
+              n = sprintf(buf, "%c", (va_arg(lst, char *))); 
+              for (i = 0; i < n; i++)
+              {
+                str[str_iter] = buf[i];
+                str_iter++;
+              }
+              break;
+              //printf("%c", va_arg(lst, int)); break;
+            case 'd':              
+              n = sprintf(buf, "%d", (va_arg(lst, char *))); 
+              for (i = 0; i < n; i++)
+              {
+                str[str_iter] = buf[i];
+                str_iter++;
+              }
+              break;
+              //printf("%d", va_arg(lst, int)); break;
+        }
+        c++;
+    }
 }

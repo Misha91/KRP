@@ -65,7 +65,7 @@ void usb_init(void){
  unsigned char currentMode = *( (volatile unsigned long *) OTG_FS_GINTSTS) & 0x1; // should be 0
   
   *( (volatile unsigned long *) OTG_FS_DCFG) = (1<<0) | (1<<1) ; // DSPD[1:0] = 11, | (1<<2) NZLSOHSK[2] = 1
-  *( (volatile unsigned long *) OTG_FS_GINTMSK) |= (1<< 4) | (1 << 12) | (1 << 13);//(1 << 3) | (1 << 10) | (1 << 11)  |   // 
+  *( (volatile unsigned long *) OTG_FS_GINTMSK) |= (1 << 3) | (1<< 4) | (1 << 10) | (1 << 11)  | (1 << 12) | (1 << 13);//    // 
    /*    
     SOFM[3] = 1 , SOF
     RXFLVLM[4] = 1,
@@ -110,3 +110,33 @@ void usb_init(void){
   //OTG_FS_DCFG &= ~(1<<2);
 }
 
+void usb_reset_routine()
+{
+    *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 27; //SNAK
+    
+    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= 1 << 0; //V
+    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= 1 << 16; //V
+    
+    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 3; //STUP
+    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 0; //XFRC    
+    
+    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 0; //XFRCM
+    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 3; //TOC
+    
+   *( (volatile unsigned long *) OTG_FS_GRXFSIZ) |= 0x40; 
+      
+   *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) |= 0x40<<16; 
+   
+    *( (volatile unsigned long *) OTG_FS_DOEPTSIZ0) |= (1 << 29) | (1 << 30); 
+}
+
+void usb_enum_done_routine()
+{
+    unsigned enumSpeed = (*( (volatile unsigned long *) OTG_FS_DSTS) & 0x6) >> 1;
+    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= 0x3; 
+        /*
+    00: 64 bytes
+    01: 32 bytes
+    10: 16 bytes
+    11: 8 bytes */
+}

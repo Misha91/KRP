@@ -35,6 +35,9 @@ volatile __no_init unsigned long REG@ADDRESS
 *( (volatile unsigned long *) USB_REG1) = 0x00;
 */
 
+#define RXFLVL (1<<4)
+#define USBRST (1<<12)
+#define ENUMDNE (1<<13)
 struct struct_usb
 {
  volatile unsigned long reg1;
@@ -43,5 +46,6 @@ struct struct_usb
 
 
 void usb_init(void);
-
+void usb_reset_routine();
+void usb_enum_done_routine();
 #endif

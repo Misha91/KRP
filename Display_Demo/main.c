@@ -31,57 +31,32 @@ void OTG_FS_IRQHandler(void){
   char buffer [50];
   static int tmp = 0;
   int n, k;
-  unsigned long regStorage = *( (volatile unsigned long *) OTG_FS_GINTSTS);
+  unsigned long stsStorage = *( (volatile unsigned long *) OTG_FS_GINTSTS);
   
-  if (regStorage & (1<<12))
+  if (stsStorage & USBRST)
   {
-    
-    *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 27; //SNAK
-    
-    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= 1 << 0; //V
-    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= 1 << 16; //V
-    
-    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 3; //STUP
-    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 0; //XFRC    
-    
-    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 0; //XFRCM
-    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 3; //TOC
-    
-   *( (volatile unsigned long *) OTG_FS_GRXFSIZ) |= 0x40; 
-      
-   *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) |= 0x40<<16; 
-   
-    *( (volatile unsigned long *) OTG_FS_DOEPTSIZ0) |= (1 << 29) | (1 << 30); 
-    
-    n=sprintf (buffer, "START OF RESET"); 
-    LCD_printLine(15,0, buffer, n);
-    *( (volatile unsigned long *) OTG_FS_GINTSTS) |= (1<<12);
+    usb_reset_routine();    
+    n=sprintf (buffer, "USBRST"); 
+    LCD_printLine(0,0, buffer, n);
+    *( (volatile unsigned long *) OTG_FS_GINTSTS) |= USBRST;
     tmp++;
-    //OTG_FS_GINTSTS = ???;
-    //usb_reset();
   }
 
-  if (regStorage & (1<<13))
+  if (stsStorage & ENUMDNE)
   {
-    unsigned enumSpeed = (*( (volatile unsigned long *) OTG_FS_DSTS) & 0x6) >> 1;
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= 0x3; 
-    /*
-    00: 64 bytes
-    01: 32 bytes
-    10: 16 bytes
-    11: 8 bytes */
+
+    usb_enum_done_routine();
     n=sprintf (buffer, "END OF RESET"); 
     LCD_printLine(16,0, buffer, n);
     
-    n=sprintf (buffer, "ENUM SPEED: %d", enumSpeed); 
-    LCD_printLine(17,0, buffer, n);
-    *( (volatile unsigned long *) OTG_FS_GINTSTS) |= (1<<13);
-    
-       //tmp++;
-    
+    //n=sprintf (buffer, "ENUM SPEED: %d", enumSpeed); 
+   // LCD_printLine(17,0, buffer, n);
+    n=sprintf (buffer, "ENUMDNE"); 
+    LCD_printLine(0,0, buffer, n);
+    *( (volatile unsigned long *) OTG_FS_GINTSTS) |= ENUMDNE;    
   }
   
-  if (regStorage & (1<<4))
+  if (stsStorage & RXFLVL)
   {
    unsigned long pcktStatus = (*( (volatile unsigned long *) OTG_FS_GRXSTSP) & (0xF << 16)) >> 16;
    unsigned long bcnt = (*( (volatile unsigned long *) OTG_FS_GRXSTSP) & (0xFFF << 4)) >> 4;
@@ -105,8 +80,7 @@ void OTG_FS_IRQHandler(void){
        
      };
      
-     n=sprintf (buffer, "READING IS FINISHED %d", k); 
-     LCD_printLine(3,0, buffer, n);
+
      
      if (k != 0 && k < 128)
      {
@@ -119,13 +93,14 @@ void OTG_FS_IRQHandler(void){
      }
    }
    
+     n=sprintf (buffer, "RXFLVL"); 
+     LCD_printLine(0,0, buffer, n);
 
-
-    *( (volatile unsigned long *) OTG_FS_GINTSTS) |= (1<<4);
+    *( (volatile unsigned long *) OTG_FS_GINTSTS) |= RXFLVL;
   }
 
    
-   n=sprintf (buffer, "OTG_FS_GINTSTS %#08x", regStorage); 
+   n=sprintf (buffer, "OTG_FS_GINTSTS %#08x", stsStorage); 
    LCD_printLine(19,0, buffer, n);
   
    n=sprintf (buffer, "tmp %d", tmp); 
