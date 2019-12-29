@@ -467,9 +467,29 @@ void LCD_printNum(uint16_t row, uint16_t col, int h){
   n=sprintf (buffer, "%d", h);
   LCD_printLine(row, col, buffer, n);  
 }
+#define line_width 120
+struct LCD_lines
+{
+  char line_0[line_width];
+  char line_1[line_width];
+  char line_2[line_width];
+  char line_3[line_width];
+  char line_4[line_width];
+  char line_5[line_width];
+  char line_6[line_width];
+  char line_7[line_width];
+  char line_8[line_width];
+};
 
 void print(char *c, ...)
 {
+  
+    uint16_t height = LCD_GetFont()->Height;
+    if (LCD_GetFont()->Height == 8)
+    {
+      height += 2;
+    }
+    
     char *s;
     int i, n;
     char str[512];
@@ -477,11 +497,12 @@ void print(char *c, ...)
     int str_iter = 0;
     va_list lst;
     va_start(lst, c);
-    while(*c != '\0')
+    
+     while(*c != '\0')
     {
+
         if(*c != '%')
         {
-            //putchar(*c);
             str[str_iter] = *c;
             str_iter++;
             c++;
@@ -498,27 +519,29 @@ void print(char *c, ...)
         switch(*c)
         {
             case 's': 
-              
               n = sprintf(buf, "%s", (va_arg(lst, char *))); 
               for (i = 0; i < n; i++)
               {
+                
                 str[str_iter] = buf[i];
                 str_iter++;
               }
               break;
-            case 'c':               
-              n = sprintf(buf, "%c", (va_arg(lst, char *))); 
+            case 'c':
+              n = sprintf(buf, "%c", *(va_arg(lst, char *))); 
               for (i = 0; i < n; i++)
               {
+                  
                 str[str_iter] = buf[i];
                 str_iter++;
               }
               break;
               //printf("%c", va_arg(lst, int)); break;
-            case 'd':              
-              n = sprintf(buf, "%d", (va_arg(lst, char *))); 
+            case 'd':             
+              n = sprintf(buf, "%d", *(va_arg(lst, char *))); 
               for (i = 0; i < n; i++)
               {
+                 
                 str[str_iter] = buf[i];
                 str_iter++;
               }
@@ -527,4 +550,7 @@ void print(char *c, ...)
         }
         c++;
     }
+
+    str[str_iter] = 0;
+    printf("%s\n", str);
 }

@@ -4,6 +4,7 @@
 #include "stm32f4xx_conf.h"
 
 #define USB_BASE_ADDRESS 0x50000000
+#define OTG_FS_GOTGINT (USB_BASE_ADDRESS + 0x004)
 #define OTG_FS_GAHBCFG (USB_BASE_ADDRESS + 0x008)
 #define OTG_FS_GUSBCFG (USB_BASE_ADDRESS + 0x00C)
 #define OTG_FS_GINTSTS (USB_BASE_ADDRESS + 0x014)
@@ -22,7 +23,9 @@
 
 #define OTG_FS_DIEPMSK (USB_BASE_ADDRESS + 0x810)
 #define OTG_FS_DOEPMSK (USB_BASE_ADDRESS + 0x814)
+#define OTG_FS_DAINT (USB_BASE_ADDRESS + 0x818)
 #define OTG_FS_DAINTMSK (USB_BASE_ADDRESS + 0x81C)
+
 #define OTG_FS_GRXSTSP (USB_BASE_ADDRESS + 0x020)
 
 /*
@@ -35,9 +38,17 @@ volatile __no_init unsigned long REG@ADDRESS
 *( (volatile unsigned long *) USB_REG1) = 0x00;
 */
 
+#define OTGINT (1 << 2)
+#define SOFM (1 << 3)
 #define RXFLVL (1<<4)
+#define ESUSPM (1 << 10)
+#define USBSUSPM (1 << 11)
 #define USBRST (1<<12)
 #define ENUMDNE (1<<13)
+#define ENUMDNE (1<<13)
+#define OEPINT (1<<19)
+
+
 struct struct_usb
 {
  volatile unsigned long reg1;
