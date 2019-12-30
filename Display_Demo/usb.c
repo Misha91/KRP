@@ -123,7 +123,7 @@ void usb_reset_routine()
     *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 0; //XFRCM
     *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 3; //TOC
     
-   *( (volatile unsigned long *) OTG_FS_GRXFSIZ) |= 0x40; 
+   *( (volatile unsigned long *) OTG_FS_GRXFSIZ) |= 0x80; 
       
    *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) |= 0x40<<16; 
    
@@ -179,36 +179,41 @@ void OTG_FS_IRQHandler(void){
     unsigned long regMskStorage = *( (volatile unsigned long *) OTG_FS_GINTMSK);
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = 0;
     unsigned long init_grxstsp = *((volatile unsigned long *) OTG_FS_GRXSTSP);
-    unsigned long pcktStatus = (init_grxstsp >> 17) & (0xF) ;
-    unsigned long bcnt = (init_grxstsp >> 4) & (0x7FF ) ;
-    
+    unsigned char pcktStatus = (init_grxstsp >> 17) & (0xF) ;
+    unsigned int bcnt = (init_grxstsp >> 4) & (0x7FF ) ;
+    unsigned char dpid = (init_grxstsp >> 15) & (0x3) ;
     n=sprintf (buffer, "pcktSt %#08x bcnt %#08x", pcktStatus, bcnt); 
     LCD_printLine(1,0, buffer, n);
     
    
-    
-    for (n = 0; n < (int)(bcnt/8); n++)
-      {
-        readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
-        c=sprintf (buffer, "%d %#2x %#2x %#4x %#4x %#4x", fifo_num, readBuffer[fifo_num]>>56, (readBuffer[fifo_num]>>48)&0xFF, (readBuffer[fifo_num]>>32)&0xFFFF, (readBuffer[fifo_num]>>16)&0xFFFF, readBuffer[fifo_num]&0xFFFF ); 
-        LCD_printLine(2+ fifo_num,0, buffer, c);
-        fifo_num++;
-      }
-    
-    
-    if (pcktStatus == 0x04)
+    if (bcnt != 0)
     {
-            
+      
+      for (n = 0; n < (int)(bcnt/8); n++)
+        {
+          readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
+          fifo_num++;
+          readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
+          c=sprintf (buffer, "%d %#2x %#2x %#4x %#4x %#4x", fifo_num, (readBuffer[fifo_num-1]>>24)&0xFF, (readBuffer[fifo_num-1]>>16)&0xFF, (readBuffer[fifo_num-1]>>0)&0xFFFF, (readBuffer[fifo_num]>>16)&0xFFFF, (readBuffer[fifo_num]>>0)&0xFFFF ); 
+          
+          fifo_num++;
+          LCD_printLine(2+ fifo_num/2,0, buffer, c);
+        }
+      
+      
+      if (pcktStatus == 0x04)
+      {
+              
+      }
+      
+      else if (pcktStatus == 0x06)
+      {             
+        //fifo_num -= 1;
+        //c=sprintf (buffer, "%d %#2x %#2x %#4x %#4x %#4x", fifo_num, readBuffer[fifo_num]>>56, (readBuffer[fifo_num]>>48)&0xFF, (readBuffer[fifo_num]>>32)&0xFFFF, (readBuffer[fifo_num]>>16)&0xFFFF, readBuffer[fifo_num]&0xFFFF ); 
+        //LCD_printLine(23,0, buffer, c);
+        //fifo_num++;
+      }
     }
-    
-    else if (pcktStatus == 0x06)
-    {             
-      fifo_num -= 1;
-      c=sprintf (buffer, "%d %#2x %#2x %#4x %#4x %#4x", fifo_num, readBuffer[fifo_num]>>56, (readBuffer[fifo_num]>>48)&0xFF, (readBuffer[fifo_num]>>32)&0xFFFF, (readBuffer[fifo_num]>>16)&0xFFFF, readBuffer[fifo_num]&0xFFFF ); 
-      LCD_printLine(23,0, buffer, c);
-      fifo_num++;
-    }
-    
     
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = regMskStorage;
    
@@ -216,10 +221,10 @@ void OTG_FS_IRQHandler(void){
 
    
    n=sprintf (buffer, "OTG_FS_GINTSTS %#08x", stsStorage); 
-   LCD_printLine(19,0, buffer, n);
+   LCD_printLine(20,0, buffer, n);
   
    n=sprintf (buffer, "tmp %d", tmp); 
-   LCD_printLine(18,0, buffer, n);
+   LCD_printLine(19,0, buffer, n);
    
    if (stsStorage & SOFM)
    {
@@ -260,11 +265,11 @@ void OTG_FS_IRQHandler(void){
         k=sprintf (buffer, "%d", stp_cnt); 
         LCD_printLine(18,0, buffer, k);        
 
-        c=sprintf (buffer, "%#8x",readBuffer[4 - 2*stp_cnt]&0xFFFFFFFF); 
+        c=sprintf (buffer, "%#8x",readBuffer[4 - 2*stp_cnt]); 
         LCD_printLine(15,0, buffer, c);
-        c=sprintf (buffer, "%#8x",readBuffer[5 - 2*stp_cnt]>>32); 
+        c=sprintf (buffer, "%#8x",readBuffer[5 - 2*stp_cnt]); 
         LCD_printLine(16,0, buffer, c);
-        fifo_num = 0;
+        //fifo_num = 0;
       }     
    }
    
