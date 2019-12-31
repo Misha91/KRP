@@ -114,8 +114,8 @@ void usb_reset_routine()
 {
     *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 27; //SNAK
     
-    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= 1 << 0; //V
-    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= 1 << 16; //V
+    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= (1 << 0) | (1 << 16); //Enable EPIN0 & EPOUT0
+    //*( (volatile unsigned long *) OTG_FS_DAINTMSK) |= ; //V
     
     *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 3; //STUP
     *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 0; //XFRC    
@@ -128,12 +128,13 @@ void usb_reset_routine()
    *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) |= 0x40<<16; 
    
     *( (volatile unsigned long *) OTG_FS_DOEPTSIZ0) |= (1 << 29) | (1 << 30); 
+    //*( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 31;
 }
 
 void usb_enum_done_routine()
 {
     unsigned enumSpeed = (*( (volatile unsigned long *) OTG_FS_DSTS) & 0x6) >> 1;
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= 0x3; 
+    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= 0x1; 
         /*
     00: 64 bytes
     01: 32 bytes
@@ -186,38 +187,34 @@ void OTG_FS_IRQHandler(void){
     LCD_printLine(1,0, buffer, n);
     
    
-    if (bcnt != 0)
+ 
+    
+    
+    
+    if (pcktStatus == 0x04)
     {
-      
-      for (n = 0; n < (int)(bcnt/8); n++)
-        {
-          readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
-          fifo_num++;
-          readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
-          c=sprintf (buffer, "%d %#2x %#2x %#4x %#4x %#4x", fifo_num, (readBuffer[fifo_num-1]>>24)&0xFF, (readBuffer[fifo_num-1]>>16)&0xFF, (readBuffer[fifo_num-1]>>0)&0xFFFF, (readBuffer[fifo_num]>>16)&0xFFFF, (readBuffer[fifo_num]>>0)&0xFFFF ); 
-          
-          fifo_num++;
-          LCD_printLine(2+ fifo_num/2,0, buffer, c);
-        }
-      
-      
-      if (pcktStatus == 0x04)
-      {
-              
-      }
-      
-      else if (pcktStatus == 0x06)
-      {             
-        //fifo_num -= 1;
-        //c=sprintf (buffer, "%d %#2x %#2x %#4x %#4x %#4x", fifo_num, readBuffer[fifo_num]>>56, (readBuffer[fifo_num]>>48)&0xFF, (readBuffer[fifo_num]>>32)&0xFFFF, (readBuffer[fifo_num]>>16)&0xFFFF, readBuffer[fifo_num]&0xFFFF ); 
-        //LCD_printLine(23,0, buffer, c);
-        //fifo_num++;
-      }
+      *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= (1<<26) | (1 << 31);
     }
     
+    else if (pcktStatus == 0x06)
+    {             
+      for (n = 0; n < (int)(bcnt/4); n++)
+      {
+        readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
+        
+        //readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
+        c=sprintf (buffer, "%d %#08x", fifo_num, readBuffer[fifo_num]); 
+            
+        LCD_printLine(2+ fifo_num,0, buffer, c);
+        fifo_num++;
+      }
+    }
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = regMskStorage;
-   
   }
+    
+  
+   
+  
 
    
    n=sprintf (buffer, "OTG_FS_GINTSTS %#08x", stsStorage); 
