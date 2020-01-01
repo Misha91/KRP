@@ -53,6 +53,7 @@ volatile __no_init unsigned long REG@ADDRESS
 #define ENUMDNE (1<<13)
 #define ENUMDNE (1<<13)
 #define OEPINT (1<<19)
+#define IEPINT (1<<18)
 #define NPTXFE (1<<5)
 
 struct struct_usb
