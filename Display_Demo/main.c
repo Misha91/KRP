@@ -37,8 +37,8 @@ int main()
   //n=sprintf (buffer, "%d", sizeof(chars)-1); 
   //LCD_printLine(0,0, buffer, n);
   
-  char chars[] = "Hello world abc!";
-  LCD_printLine(0,0, chars, sizeof(chars)-1);
+  //char chars[] = "Hello world abc!";
+  //LCD_printLine(0,0, chars, sizeof(chars)-1);
   
   while(1);
 

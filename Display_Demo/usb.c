@@ -5,6 +5,32 @@
 __IO struct struct_usb *usb = (struct struct_usb *) USB_BASE_ADDRESS;
 //usb->reg1 = 0x00;
 
+const  uint8_t  deviceDescriptor  [ 18 ]  =  
+{ 
+	18 , 			// bLength 
+	1 , 			// bDescriptorType 
+	0x00 ,  0x02 , 	        // bcdUSB 
+	0xFF , 		        // bDeviceClass 
+	0xFF , 		        // bDeviceSubClass 
+	0xFF , 		        // bDeviceProtocol 
+	64 , 			// bMaxPacketSize0 
+	0xAD ,  0xDE ,          // idVendor 
+	0xEF ,  0xBE ,          // idProduct 
+	0x00 ,  0x01 ,          // bcdDevice
+	0 , 			// iManufacturer 
+	0 , 			// iProduct 
+	0 , 			// iSerialNumber 
+	1 			// bNumConfigurations 
+};
+
+struct setup_packet {
+  uint8_t bmRequestType;
+  uint8_t bRequest;
+  uint16_t wValue;
+  uint16_t wIndex;
+  uint16_t wLength;
+};
+
 void usb_init(void){ 
     
 
@@ -64,7 +90,7 @@ void usb_init(void){
   
  unsigned char currentMode = *( (volatile unsigned long *) OTG_FS_GINTSTS) & 0x1; // should be 0
   
-  *( (volatile unsigned long *) OTG_FS_DCFG) = (1<<0) | (1<<1) ; // DSPD[1:0] = 11, | (1<<2) NZLSOHSK[2] = 1
+  *( (volatile unsigned long *) OTG_FS_DCFG) = (1<<0) | (1<<1)  ; // DSPD[1:0] = 11, NZLSOHSK[2] = 0
   *( (volatile unsigned long *) OTG_FS_GINTMSK) |= SOFM | RXFLVL | ESUSPM | USBSUSPM  | USBRST | ENUMDNE;//    // 
    /*    
     SOFM[3] = 1 , SOF
@@ -112,17 +138,21 @@ void usb_init(void){
 
 void usb_reset_routine()
 {
+   
+    *( (volatile unsigned long *) OTG_FS_GRSTCTL) |= 1 << 4; //FLUSH FIFO
     *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 27; //SNAK
+    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(1 << 21); //NOT STALL
+    *( (volatile unsigned long *) OTG_FS_DOEPCTL0) &= ~(1 << 21); //NOT STALL
     
-    *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= (1 << 0) | (1 << 16); //Enable EPIN0 & EPOUT0
-    //*( (volatile unsigned long *) OTG_FS_DAINTMSK) |= ; //V
+    *( (volatile unsigned long *) OTG_FS_DAINTMSK) = 0x10001; //Enable EPIN0 & EPOUT0
     
-    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 3; //STUP
-    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 1 << 0; //XFRC    
     
-    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 0; //XFRCM
-    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 1 << 3; //TOC
+    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 0xB; //STUP XFRC EPDM
+        
+    //*( (volatile unsigned long *) OTG_FS_DCFG) &= ~(0x7F0); //zero address
     
+    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 0xB; //XFRCM TOC EPDM
+  
    *( (volatile unsigned long *) OTG_FS_GRXFSIZ) |= 0x80; 
       
    *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) |= 0x40<<16; 
@@ -141,6 +171,77 @@ void usb_enum_done_routine()
     10: 16 bytes
     11: 8 bytes */
 }
+uint16_t newAddr = 0;
+uint8_t needToChangeAddr = 0;
+
+uint8_t send_desc(struct setup_packet * stp_pck)
+{
+  int n;
+  char buffer[50];
+
+    
+  uint8_t  type  =  (( stp_pck->wValue  >>  8 )  &  0xFF ); 
+  uint8_t  index  = ( stp_pck->wValue  &  0xFF ); 
+ 
+  if  (stp_pck->bRequest == 6 && type  ==  1  &&  index  ==  0  &&  stp_pck->wIndex  ==  0)  
+  { 
+    
+    uint16_t  length  =  stp_pck->wLength > sizeof(deviceDescriptor) ? sizeof(deviceDescriptor) : stp_pck->wLength;
+    uint32_t *TxBuffer = (uint32_t*)malloc(((int)(length/4))*sizeof(uint32_t));
+    
+    
+    for (n = 0; n < (int)(length/4); n++)
+    {
+      //*( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000)) = 
+      TxBuffer[n] = deviceDescriptor[n*4] | (deviceDescriptor[n*4 + 1] << 8) |
+        (deviceDescriptor[n*4 + 2] << 16) | (deviceDescriptor[n*4 + 3] << 24);
+            
+    }
+    if (length%4 != 0)
+    {
+      TxBuffer[(int)(length/4)] = 0;
+      for (n = 0; n < length%4; n++)
+      {
+        TxBuffer[(int)(length/4)] |= deviceDescriptor[((int)(length/4))*4+n]<<(8*n);
+      }
+    }
+    
+    int free_tx = (*( (volatile unsigned long *) OTG_FS_DTXFSTS0) & 0xFFFF)*4;
+    if (free_tx > length)
+    {
+      *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) = (1<<19) | length;
+      
+      
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(0x3 | (0xF << 22));
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<26);
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<31);
+      
+      for (n = 0; n <= (int)(length/4); n++)
+      {
+        *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000)) = TxBuffer[n];
+      }
+      //n=sprintf (buffer, "Sent: %d, avail: %d", length, free_tx ); 
+      //LCD_printLine(3,0, buffer, n);
+      return 1;
+    }
+    //n=sprintf (buffer, "%#08x %#08x %d", TxBuffer[3], TxBuffer[4], (int)(length/4)); 
+    //LCD_printLine(4,0, buffer, n);
+  }
+  else if (stp_pck->bmRequestType == 0 && stp_pck->bRequest == 5)
+  {
+      *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) = (1<<19) | 0;    
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(0x3 | (0xF << 22));
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<26);
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<31);
+    
+    needToChangeAddr = 1;
+    newAddr = stp_pck->wValue;
+    //n=sprintf (buffer, "%d", newAddr); 
+    //LCD_printLine(4,0, buffer, n);
+    return 1;
+  }
+  return 0;
+}
 
 volatile unsigned long readBuffer[128];
 
@@ -149,16 +250,32 @@ void OTG_FS_IRQHandler(void){
   char buffer [50];
   static int tmp = 0;
   static int fifo_num = 0;
+  static uint8_t allowedReplies = 5;
+  static uint8_t packetProcessed = 0;
+  if (packetProcessed > 20) packetProcessed = 0;
+  static int pos = 0;
+  if (pos > 32) pos = 0;
   int n, k, c;
   unsigned long stsStorage = *( (volatile unsigned long *) OTG_FS_GINTSTS);
+  
+  n=sprintf (buffer, "%#08x", (*( (volatile unsigned long *) OTG_FS_DCFG) >> 4) & 0x7F); 
+  LCD_printLine(2,0, buffer, n);
+  
+  /*if (*( (volatile unsigned long *) OTG_FS_DIEPINT0) & (1<<7))
+  {
+    
+    
+    *( (volatile unsigned long *) OTG_FS_DIEPINT0) |= (1<<7);
+  }*/
   
   if (stsStorage & USBRST)
   {
     usb_reset_routine();    
-    n=sprintf (buffer, "USBRST"); 
-    LCD_printLine(0,0, buffer, n);
+    n=sprintf (buffer, "U"); 
+    LCD_printLine(0,pos, buffer, n);
     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= USBRST;
-    tmp++;
+    //tmp++;
+    pos ++;
   }
 
   if (stsStorage & ENUMDNE)
@@ -170,8 +287,9 @@ void OTG_FS_IRQHandler(void){
     
     //n=sprintf (buffer, "ENUM SPEED: %d", enumSpeed); 
    // LCD_printLine(17,0, buffer, n);
-    n=sprintf (buffer, "ENUMDNE"); 
-    LCD_printLine(0,0, buffer, n);
+    n=sprintf (buffer, "E"); 
+    LCD_printLine(0,pos, buffer, n);
+    pos ++;
     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= ENUMDNE;    
   }
   
@@ -183,17 +301,29 @@ void OTG_FS_IRQHandler(void){
     unsigned char pcktStatus = (init_grxstsp >> 17) & (0xF) ;
     unsigned int bcnt = (init_grxstsp >> 4) & (0x7FF ) ;
     unsigned char dpid = (init_grxstsp >> 15) & (0x3) ;
-    n=sprintf (buffer, "pcktSt %#08x bcnt %#08x", pcktStatus, bcnt); 
-    LCD_printLine(1,0, buffer, n);
+    //if ((pcktStatus == 2 || pcktStatus == 3) && bcnt > 0) 
+    //{
+      n=sprintf (buffer, "pcktSt %#08x bcnt %#08x", pcktStatus, bcnt); 
+      LCD_printLine(1,0, buffer, n);
+    //}
     
-   
- 
-    
+    n=sprintf (buffer, "R"); 
+    LCD_printLine(0,pos, buffer, n);
+    pos ++; 
     
     
     if (pcktStatus == 0x04)
     {
       *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= (1<<26) | (1 << 31);
+      if (needToChangeAddr)
+      {
+        needToChangeAddr = 0;
+        *( (volatile unsigned long *) OTG_FS_DCFG) &= ~(0x7F0);
+        *( (volatile unsigned long *) OTG_FS_DCFG) |= newAddr << 4;
+        //n=sprintf (buffer, "%d %#08x", newAddr, OTG_FS_DCFG); 
+        //LCD_printLine(5,0, buffer, n);
+        tmp++;
+      }
     }
     
     else if (pcktStatus == 0x06)
@@ -203,20 +333,31 @@ void OTG_FS_IRQHandler(void){
         readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
         
         //readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));
-        c=sprintf (buffer, "%d %#08x", fifo_num, readBuffer[fifo_num]); 
+        //c=sprintf (buffer, "%d %#08x", fifo_num, readBuffer[fifo_num]); 
             
-        LCD_printLine(2+ fifo_num,0, buffer, c);
+        //LCD_printLine(2+ fifo_num,0, buffer, c);
         fifo_num++;
       }
+      /*
+      struct setup_packet stp_pck;
+      stp_pck.bmRequestType = readBuffer[fifo_num-2] & 0xFF;
+      stp_pck.bRequest = (readBuffer[fifo_num-2] >> 8) & 0xFF;
+      stp_pck.wValue = (readBuffer[fifo_num-2] >> 16) & 0xFFFF;
+      stp_pck.wIndex = readBuffer[fifo_num-1] & 0xFFFF;
+      stp_pck.wLength = (readBuffer[fifo_num-1] >> 16) & 0xFFFF;
+      c=sprintf (buffer, "%#02x %#02x %#04x %#04x %#04x", stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
+      LCD_printLine(3+packetProcessed,0, buffer, c);
+      packetProcessed++;
+      send_desc(&stp_pck);
+      n=sprintf (buffer, "S"); 
+      LCD_printLine(0,pos, buffer, n);
+      pos ++;
+      */
     }
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = regMskStorage;
-  }
-    
-  
-   
-  
 
-   
+  }
+        
    n=sprintf (buffer, "OTG_FS_GINTSTS %#08x", stsStorage); 
    LCD_printLine(20,0, buffer, n);
   
@@ -226,29 +367,41 @@ void OTG_FS_IRQHandler(void){
    if (stsStorage & SOFM)
    {
      unsigned long dsts = *( (volatile unsigned long *) OTG_FS_DSTS);
-     n=sprintf (buffer, "OTG_FS_DSTS %#08x", dsts); 
-     LCD_printLine(21,0, buffer, n);
+     //n=sprintf (buffer, "OTG_FS_DSTS %#08x", dsts); 
+     //LCD_printLine(21,0, buffer, n);
      *( (volatile unsigned long *) OTG_FS_GINTSTS) |= SOFM;
+    //n=sprintf (buffer, "S"); 
+    //LCD_printLine(0,pos, buffer, n);
+    //pos ++;
    }
    
    if (stsStorage & ESUSPM)
    {
      *( (volatile unsigned long *) OTG_FS_GINTSTS) |= ESUSPM;
+    //n=sprintf (buffer, "1"); 
+    //LCD_printLine(0,pos, buffer, n);
+    //pos ++;
    }
    
    if (stsStorage & USBSUSPM)
    {
      *( (volatile unsigned long *) OTG_FS_GINTSTS) |= USBSUSPM;
+    //n=sprintf (buffer, "2"); 
+    //LCD_printLine(0,pos, buffer, n);
+    //pos ++;
    }
    
    if (stsStorage & OTGINT)
    {
-    
+
      unsigned long gotgint = *( (volatile unsigned long *) OTG_FS_GOTGINT);
      n=sprintf (buffer, "OTG_FS_GOTGINT %#08x", gotgint); 
      LCD_printLine(20,0, buffer, n);
      *( (volatile unsigned long *) OTG_FS_GOTGINT) |= (gotgint);
-     //*( (volatile unsigned long *) OTG_FS_GINTSTS) |= OTGINT;
+     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= OTGINT;
+    //n=sprintf (buffer, "3"); 
+    //LCD_printLine(0,pos, buffer, n);
+    //pos ++;
    }
    
    if (stsStorage & OEPINT)
@@ -266,8 +419,29 @@ void OTG_FS_IRQHandler(void){
         LCD_printLine(15,0, buffer, c);
         c=sprintf (buffer, "%#8x",readBuffer[5 - 2*stp_cnt]); 
         LCD_printLine(16,0, buffer, c);
-        //fifo_num = 0;
-      }     
+        if(allowedReplies--)
+        {
+          struct setup_packet stp_pck;
+          stp_pck.bmRequestType = readBuffer[4 - 2*stp_cnt] & 0xFF;
+          stp_pck.bRequest = (readBuffer[4 - 2*stp_cnt] >> 8) & 0xFF;
+          stp_pck.wValue = (readBuffer[4 - 2*stp_cnt] >> 16) & 0xFFFF;
+          stp_pck.wIndex = readBuffer[5 - 2*stp_cnt] & 0xFFFF;
+          stp_pck.wLength = (readBuffer[5 - 2*stp_cnt] >> 16) & 0xFFFF;
+          
+          uint8_t res = send_desc(&stp_pck);
+          c=sprintf (buffer, "%d %#02x %#02x %#04x %#04x %#04x", res, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
+          LCD_printLine(3+packetProcessed,0, buffer, c);
+          n=sprintf (buffer, "S"); 
+          LCD_printLine(0,pos, buffer, n);
+          pos ++;
+          packetProcessed++;
+        }
+                
+        *((volatile unsigned long *) OTG_FS_DOEPINT0) |= (0x8);
+      }
+    //n=sprintf (buffer, "4"); 
+    //LCD_printLine(0,pos, buffer, n);
+    //pos ++;
    }
    
   
