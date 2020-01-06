@@ -141,22 +141,24 @@ void usb_reset_routine()
    
     *( (volatile unsigned long *) OTG_FS_GRSTCTL) |= 1 << 4; //FLUSH FIFO
     *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 27; //SNAK
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(1 << 21); //NOT STALL
-    *( (volatile unsigned long *) OTG_FS_DOEPCTL0) &= ~(1 << 21); //NOT STALL
+    //*( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(1 << 21); //NOT STALL
+    //*( (volatile unsigned long *) OTG_FS_DOEPCTL0) &= ~(1 << 21); //NOT STALL
     
     *( (volatile unsigned long *) OTG_FS_DAINTMSK) = 0x10001; //Enable EPIN0 & EPOUT0
     
-    
-    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 0xB; //STUP XFRC EPDM
+    *( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 0x9; //STUP XFRC 
+    //*( (volatile unsigned long *) OTG_FS_DOEPMSK) |= 0xB; //STUP XFRC EPDM
         
     //*( (volatile unsigned long *) OTG_FS_DCFG) &= ~(0x7F0); //zero address
     //*( (volatile unsigned long *) OTG_FS_DCFG) |= (0x7F0);
+    //*( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= (1 << 31); //EP enable
     
-    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 0xB; //XFRCM TOC EPDM
+    *( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 0x9; //XFRCM TOC 
+    //*( (volatile unsigned long *) OTG_FS_DIEPMSK) |= 0xB; //XFRCM TOC EPDM
   
    *( (volatile unsigned long *) OTG_FS_GRXFSIZ) |= 0x80; 
       
-   *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) |= 0x40<<16; 
+   *( (volatile unsigned long *) OTG_FS_HNPTXFSIZ) = 0x40<<16; 
    
     *( (volatile unsigned long *) OTG_FS_DOEPTSIZ0) |= (1 << 29) | (1 << 30); 
     //*( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 31;
@@ -165,7 +167,7 @@ void usb_reset_routine()
 void usb_enum_done_routine()
 {
     unsigned enumSpeed = (*( (volatile unsigned long *) OTG_FS_DSTS) & 0x6) >> 1;
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= 0x1; 
+    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(0x3); 
         /*
     00: 64 bytes
     01: 32 bytes
@@ -174,7 +176,7 @@ void usb_enum_done_routine()
 }
 uint16_t newAddr = 0;
 uint8_t needToChangeAddr = 0;
-
+uint8_t last_sent = 255;
 uint8_t send_desc(struct setup_packet * stp_pck)
 {
   int n;
@@ -208,21 +210,20 @@ uint8_t send_desc(struct setup_packet * stp_pck)
     }
     
     int free_tx = (*( (volatile unsigned long *) OTG_FS_DTXFSTS0) & 0xFFFF)*4;
-    if (free_tx > length)
+
+    if (free_tx >= length)
     {
-      
-      *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) = (1<<19) | length;
-      
-      volatile unsigned long tmp_reg = *( (volatile unsigned long *) OTG_FS_DIEPCTL0);
-      tmp_reg &= ~(0x3 | (0xF << 22));
-      tmp_reg |= (1<<26);
-      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) = tmp_reg;
-      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<31);
-      
-      for (n = 0; n <= (int)(length/4); n++)
+         
+      *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) &= ~(0x7F | (1<<19) | (1<<20));
+      *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) = (1<<19) | length;      
+     for (n = 0; n <= (int)(length/4); n++)
       {
         *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000)) = TxBuffer[n];
       }
+     
+      *( (volatile unsigned long *) OTG_FS_DIEPCTL0) = (1<<26) | (1<<31); //CNAK EPENA
+     
+      last_sent = length;
       //n=sprintf (buffer, "Sent: %d, avail: %d", length, free_tx ); 
       //LCD_printLine(3,0, buffer, n);
       return 1;
@@ -232,17 +233,20 @@ uint8_t send_desc(struct setup_packet * stp_pck)
   }
   else if (stp_pck->bmRequestType == 0 && stp_pck->bRequest == 5)
   {
+ 
+    
+    
+    *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) &= ~(0x7F | (1<<19) | (1<<20));
+    *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) = (1<<19) ;      
+  
+    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<26) | (1<<31);
+   
+    needToChangeAddr = 1;
+    newAddr = stp_pck->wValue;
+    last_sent = 0;
     //*( (volatile unsigned long *) OTG_FS_DCFG) &= ~(0x7F0);
     //*( (volatile unsigned long *) OTG_FS_DCFG) |= stp_pck->wValue << 4;
     
-    *( (volatile unsigned long *) OTG_FS_DIEPTSIZ0) = (1<<19) | 0;
-    volatile unsigned long tmp_reg = *( (volatile unsigned long *) OTG_FS_DIEPCTL0);
-    tmp_reg &= ~(0x3 | (0xF << 22));
-    tmp_reg |= (1<<26);
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) = tmp_reg;
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0) |= (1<<31);
-    needToChangeAddr = 1;
-    newAddr = stp_pck->wValue;
     //n=sprintf (buffer, "%d", newAddr); 
     //LCD_printLine(4,0, buffer, n);
     
@@ -336,21 +340,23 @@ void OTG_FS_IRQHandler(void){
         }
         fifo_num++;
       }
-      /*
+      
       struct setup_packet stp_pck;
       stp_pck.bmRequestType = readBuffer[fifo_num-2] & 0xFF;
       stp_pck.bRequest = (readBuffer[fifo_num-2] >> 8) & 0xFF;
       stp_pck.wValue = (readBuffer[fifo_num-2] >> 16) & 0xFFFF;
       stp_pck.wIndex = readBuffer[fifo_num-1] & 0xFFFF;
       stp_pck.wLength = (readBuffer[fifo_num-1] >> 16) & 0xFFFF;
-      c=sprintf (buffer, "%#02x %#02x %#04x %#04x %#04x", stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
+      
+      uint8_t res = send_desc(&stp_pck);
+      c=sprintf (buffer, "%d %#02x %#02x %#04x %#04x %#04x", res, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
       LCD_printLine(3+packetProcessed,0, buffer, c);
       packetProcessed++;
-      send_desc(&stp_pck);
+      
       n=sprintf (buffer, "S"); 
       LCD_printLine(0,pos, buffer, n);
       pos ++;
-      */
+      
     }
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = regMskStorage;
 
@@ -418,7 +424,7 @@ void OTG_FS_IRQHandler(void){
           
         }
         
-      //tmp++;
+      tmp++;
       *( (volatile unsigned long *) OTG_FS_DIEPINT0) |= (1<<7);
     }
    }
@@ -427,7 +433,7 @@ void OTG_FS_IRQHandler(void){
    {
     unsigned long daint = *( (volatile unsigned long *) OTG_FS_DAINT);
     n=sprintf (buffer, "OTG_FS_DAINT %#08x", daint); 
-    
+ 
     
     LCD_printLine(22,0, buffer, n);
     if ((*((volatile unsigned long *) OTG_FS_DOEPINT0)) & (0x8))
@@ -440,7 +446,7 @@ void OTG_FS_IRQHandler(void){
       LCD_printLine(15,0, buffer, c);
       c=sprintf (buffer, "%#8x",readBuffer[5 - 2*stp_cnt]); 
       LCD_printLine(16,0, buffer, c);
-      if(allowedReplies--)
+      /*if(allowedReplies--)
       {
         struct setup_packet stp_pck;
         stp_pck.bmRequestType = readBuffer[4 - 2*stp_cnt] & 0xFF;
@@ -454,7 +460,7 @@ void OTG_FS_IRQHandler(void){
         //if (stp_pck.bRequest != 6 && stp_pck.bRequest != 5)
         if(1)
         {
-          c=sprintf (buffer, "%d %d %#02x %#02x %#04x %#04x %#04x", res, addr, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
+          c=sprintf (buffer, "%d %d %#02x %#02x %#02x %#04x %#04x %#04x", res, last_sent, addr, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
           LCD_printLine(3+packetProcessed,0, buffer, c);
           packetProcessed++;
         }
@@ -463,10 +469,10 @@ void OTG_FS_IRQHandler(void){
         LCD_printLine(0,pos, buffer, n);
         pos ++;
         
-      }
+      }*/
               
       *((volatile unsigned long *) OTG_FS_DOEPINT0) |= (0x8);
-      tmp++;
+      //tmp++;
     }
 
     //n=sprintf (buffer, "4"); 
