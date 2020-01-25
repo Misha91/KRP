@@ -30,19 +30,10 @@ int main()
   //LCD_SetFont(&Font16x24);  
   LCD_SetFont(&Font8x8);
   //timer_init();
-  usb_init();
-      
-  //char buffer [50];  
-  //int n;
-  //n=sprintf (buffer, "%d", sizeof(chars)-1); 
-  //LCD_printLine(0,0, buffer, n);
-  
-  //char chars[] = "Hello world abc!";
-  //LCD_printLine(0,0, chars, sizeof(chars)-1);
-  
-  while(1);
+  usb_init();     
 
   
+  while(1);  
   
   return 0;
 }
