@@ -6,6 +6,14 @@
 
 //extern sFONT *LCD_Currentfonts;
 
+uint32_t global_time_cnt = 0;
+void timer_init(void);
+
+
+extern volatile uint8_t usb_configured;
+extern struct report_struct report;
+//extern uint8_t send_data_ep1(const uint8_t * data_buf, uint8_t length, uint8_t ep);
+
 void clk_init()
 {
   /* Clock Setup - see Clock tree in reference manual - Figure 9.   */
@@ -29,9 +37,9 @@ int main()
   LCD_Init();
   //LCD_SetFont(&Font16x24);  
   LCD_SetFont(&Font8x8);
-  //timer_init();
+  
   usb_init();     
-
+  timer_init();
   
   while(1);  
   
@@ -68,19 +76,58 @@ void timer_init(void)
 
 void TIM2_IRQHandler(void)
 {
-  static uint8_t tmp = 0;
-
-  if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) {
+  static char buffer[50];
+  static int n;
+  //static uint32_t toWrite;
+  static uint8_t sent_num = 0;
+  if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) 
+  {
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
+   
+    global_time_cnt++;
     
-    int c;
-    char buffer [50];
-    c=sprintf (buffer, "String: %d, %#04x", tmp, tmp);     
-    LCD_printHex(2,0,tmp);
-    LCD_printNum(3,0,tmp);
-    LCD_printLine(5,0, buffer, c);
-    
-    tmp++;
+    if (usb_configured)
+    {
+      //if (usb_configured < 2)
+      //{
+      //    usb_configured++;
+      //    return;
+      //}
+      if (global_time_cnt)
+      {
+        
+        //report.but0 = 1;
+        //report.but1 = 1;
+      //memset(&report, 255, sizeof(struct report_struct));
+       /*
+      toWrite = report.but0 | (report.but1 << 1) |
+      (report.but2 << 2) | (report.but3 << 3) | (report.but4 << 4) |
+      (report.notUsed << 5) | (report.x << 8) | (report.y << 16) |
+      (report.wheel << 24);*/
+        //if (sent_num == 0 || sent_num == 2)
+        //{        
+          report.x = 100 * (sent_num + 1);
+          report.y = 100 * (sent_num + 1);
+        if (sent_num == 1){
+          int abc;
+        }
+          send_data(&report, sizeof(report), 1);
+          sent_num++;
+        //}
+        //else if (sent_num %2 == 1)
+        //{
+          //send_data(0,0,1);
+        //  sent_num++;
+        //}
+        //n=sprintf (buffer, "%d", (global_time_cnt%2 == 0) ? 0 : 1);   
+        n=sprintf (buffer, "%d", sent_num); 
+        LCD_printLine(22,0, buffer, n);
+        //usb_configured = 0;
+        memset(&report, 0, sizeof(struct report_struct));
+      }
+      
+      
+    }
   }
 
   return;
