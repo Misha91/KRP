@@ -88,17 +88,20 @@ void TIM2_IRQHandler(void)
     
     if (usb_configured)
     {
-     
-      report.x = 25 + 100 * (sent_num % 2);
-      report.y = 25 + 100 * (sent_num % 3);
+      if (global_time_cnt % 3 == 0)
+      {
+        report.x = 25 + 100 * (sent_num % 2);
+        report.y = 25 + 100 * (sent_num % 3);
 
-      send_data(&report, sizeof(report), 1);
-      sent_num++;
+        send_data(&report, sizeof(report), 1);
+        sent_num++;
 
-      n=sprintf (buffer, "%d", sent_num); 
-      LCD_printLine(22,0, buffer, n);
-      //usb_configured = 0;
-      memset(&report, 0, sizeof(struct report_struct));   
+        n=sprintf (buffer, "%d", sent_num); 
+        LCD_printLine(22,0, buffer, n);
+        //usb_configured = 0;
+        memset(&report, 0, sizeof(struct report_struct));   
+      }
+      
             
     }
   }

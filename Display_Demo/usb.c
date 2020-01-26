@@ -277,7 +277,7 @@ uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
     if (ep == 1)
     {
       *( (volatile unsigned long *) (OTG_FS_DIEPTSIZ0 + ep*0x20)) |= (1<<29);
-      //*( (volatile unsigned long *) (OTG_FS_DIEPCTL0 + ep*0x20)) ^= (1<<26);
+      *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 + ep*0x20)) ^= (1<<26);
     }
 
     *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 + ep*0x20)) |= (1<<26);
@@ -295,11 +295,13 @@ uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
 
 void set_config()
 {   
+  //while (*( (volatile unsigned long *) OTG_FS_GRSTCTL) && (1<<5));
+  *( (volatile unsigned long *) OTG_FS_GRSTCTL) |=  (1 << 6);
   *( (volatile unsigned long *) OTG_FS_DIEPCTL1) |= (1<<28); // SD0PID
-   *( (volatile unsigned long *) OTG_FS_DIEPCTL1) |= (1<<31) | (1 << 22) | (0x3 << 18) | (1<<15) | (4); // 64 bytes max packet size, active EP, EP type Interrupt (11), TxFIFO num 1
-   
-   *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= (1<<1); //Switch on IN EP for EP1
-   *( (volatile unsigned long *) OTG_FS_DIEPTXFx) = (0x40<<16);
+  *( (volatile unsigned long *) OTG_FS_DIEPCTL1) |= (1<<31) | (1 << 22) | (0x3 << 18) | (1<<15) | (4); // 64 bytes max packet size, active EP, EP type Interrupt (11), TxFIFO num 1
+
+  *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= (1<<1); //Switch on IN EP for EP1
+  *( (volatile unsigned long *) OTG_FS_DIEPTXFx) = (0x40<<16);
 }
 
 uint8_t process_cmnd(struct setup_packet * stp_pck)
