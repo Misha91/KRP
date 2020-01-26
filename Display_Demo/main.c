@@ -88,45 +88,18 @@ void TIM2_IRQHandler(void)
     
     if (usb_configured)
     {
-      //if (usb_configured < 2)
-      //{
-      //    usb_configured++;
-      //    return;
-      //}
-      if (global_time_cnt)
-      {
-        
-        //report.but0 = 1;
-        //report.but1 = 1;
-      //memset(&report, 255, sizeof(struct report_struct));
-       /*
-      toWrite = report.but0 | (report.but1 << 1) |
-      (report.but2 << 2) | (report.but3 << 3) | (report.but4 << 4) |
-      (report.notUsed << 5) | (report.x << 8) | (report.y << 16) |
-      (report.wheel << 24);*/
-        //if (sent_num == 0 || sent_num == 2)
-        //{        
-          report.x = 100 * (sent_num + 1);
-          report.y = 100 * (sent_num + 1);
-        if (sent_num == 1){
-          int abc;
-        }
-          send_data(&report, sizeof(report), 1);
-          sent_num++;
-        //}
-        //else if (sent_num %2 == 1)
-        //{
-          //send_data(0,0,1);
-        //  sent_num++;
-        //}
-        //n=sprintf (buffer, "%d", (global_time_cnt%2 == 0) ? 0 : 1);   
-        n=sprintf (buffer, "%d", sent_num); 
-        LCD_printLine(22,0, buffer, n);
-        //usb_configured = 0;
-        memset(&report, 0, sizeof(struct report_struct));
-      }
-      
-      
+     
+      report.x = 25 + 100 * (sent_num % 2);
+      report.y = 25 + 100 * (sent_num % 3);
+
+      send_data(&report, sizeof(report), 1);
+      sent_num++;
+
+      n=sprintf (buffer, "%d", sent_num); 
+      LCD_printLine(22,0, buffer, n);
+      //usb_configured = 0;
+      memset(&report, 0, sizeof(struct report_struct));   
+            
     }
   }
 
