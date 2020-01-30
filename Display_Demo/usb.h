@@ -70,9 +70,9 @@ struct report_struct {
     unsigned char but3 : 1;
     unsigned char but4 : 1;
     unsigned char notUsed : 3;
-    unsigned char x : 8;
-    unsigned char y : 8;
-    unsigned char wheel : 8;
+    char x : 8;
+    char y : 8;
+    char wheel : 8;
 
 }; 
 
