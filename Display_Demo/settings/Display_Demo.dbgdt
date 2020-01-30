@@ -454,12 +454,12 @@
                 <RectRecentDocked>0000000032000000FE000000E6030000</RectRecentDocked>
                 <RecentFrameAlignment>16384</RecentFrameAlignment>
                 <RecentRowIndex>0</RecentRowIndex>
-                <IsFloating>0</IsFloating>
+                <IsFloating>1</IsFloating>
                 <MRUWidth>32767</MRUWidth>
                 <PinState>0</PinState>
             </Pane-34065>
             <BasePane-34065>
-                <IsVisible>1</IsVisible>
+                <IsVisible>0</IsVisible>
             </BasePane-34065>
             <IarPane-34065>
                 <col-names>
@@ -1067,7 +1067,7 @@
             <Pane-34050>
                 <ID>34050</ID>
                 <RectRecentFloat>0A0000000A0000006E0000006E000000</RectRecentFloat>
-                <RectRecentDocked>0100000000000000160300001A000000</RectRecentDocked>
+                <RectRecentDocked>0000000000000000150300001A000000</RectRecentDocked>
                 <RecentFrameAlignment>8192</RecentFrameAlignment>
                 <RecentRowIndex>0</RecentRowIndex>
                 <IsFloating>0</IsFloating>

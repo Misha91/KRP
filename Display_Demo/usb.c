@@ -199,8 +199,7 @@ void set_config()
 }
 
 void usb_reset_routine()
-{
-   
+{ 
   *( (volatile unsigned long *) OTG_FS_GRSTCTL) |= (0x10 << 6) | (0x3 << 4); //FLUSH FIFO
   *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 27; //SNAK
   *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(1 << 21); //NOT STALL
@@ -228,6 +227,7 @@ void usb_enum_done_routine()
   10: 16 bytes
   11: 8 bytes */
 }
+
 
 
 uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
@@ -273,6 +273,7 @@ uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
 
     return 1;
   }
+  
   return 0; 
 }
 
@@ -518,13 +519,32 @@ void OTG_FS_IRQHandler(void){
     //pos ++;
    }
    
-
+   if (stsStorage & IEPINT)
+   {
+    unsigned long daint = *( (volatile unsigned long *) OTG_FS_DAINT);
+    n=sprintf (buffer, "OTG_FS_DAINT %#08x", daint); 
+    if (*( (volatile unsigned long *) OTG_FS_DIEPINT0) & (1<<0))
+    {   
+        if (needToChangeAddr)
+        {
+          needToChangeAddr = 0;
+          *( (volatile unsigned long *) OTG_FS_DCFG) &= ~(0x7F0);
+          *( (volatile unsigned long *) OTG_FS_DCFG) |= newAddr << 4;
+          //n=sprintf (buffer, "%d %#08x", newAddr, OTG_FS_DCFG); 
+          //LCD_printLine(5,0, buffer, n);
+          
+        }
+        
+      tmp++;
+      *( (volatile unsigned long *) OTG_FS_DIEPINT0) |= (1<<7);
+    }
+   }
    
    if (stsStorage & OEPINT)
    {
     unsigned long daint = *( (volatile unsigned long *) OTG_FS_DAINT);
     n=sprintf (buffer, "OTG_FS_DAINT %#08x", daint); 
-    
+ 
     
     LCD_printLine(22,0, buffer, n);
     if ((*((volatile unsigned long *) OTG_FS_DOEPINT0)) & (0x8))
@@ -551,7 +571,7 @@ void OTG_FS_IRQHandler(void){
         //if (stp_pck.bRequest != 6 && stp_pck.bRequest != 5)
         if(1)
         {
-          c=sprintf (buffer, "%d %d %#02x %#02x %#04x %#04x %#04x", res, addr, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
+          c=sprintf (buffer, "%d %d %#02x %#02x %#02x %#04x %#04x %#04x", res, last_sent, addr, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
           LCD_printLine(3+packetProcessed,0, buffer, c);
           packetProcessed++;
         }
