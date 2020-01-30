@@ -47,12 +47,14 @@ int main()
   STM_EVAL_LEDInit(LED3);
   STM_EVAL_LEDInit(LED4);
   STM_EVAL_LEDOn(LED4);
+  
+#ifndef DEBUG
   char buffer[50];
   int n=sprintf (buffer, "The device has started!"); 
-  LCD_printLine(1,0, buffer, n); 
-  
+  LCD_printLine(1,0, buffer, n);   
   n=sprintf (buffer, "BE4M38KRP Semestral Work"); 
   LCD_printLine(22,0, buffer, n); 
+#endif
 
   while(1)
   {
@@ -108,9 +110,13 @@ void TIM2_IRQHandler(void)
       if (last_was_zero)
       {
         last_was_zero = 0;
+        STM_EVAL_LEDOn(LED3);
+        
+#ifndef DEBUG
         int n=sprintf (buffer, "USB IS CONNECTED!"); 
         LCD_printLine(4,0, buffer, n); 
-        STM_EVAL_LEDOn(LED3);
+#endif
+        
       }
 
       if (!STM_EVAL_PBGetState(BUTTON_TAMPER)) report.but0 = 1;
@@ -181,9 +187,13 @@ void TIM2_IRQHandler(void)
       if (last_was_zero == 0)
       {
         last_was_zero = 1;
+        STM_EVAL_LEDOff(LED3);
+        
+#ifndef DEBUG
         int n=sprintf (buffer, "USB IS NOT CONNECTED!"); 
         LCD_printLine(4,0, buffer, n); 
-        STM_EVAL_LEDOff(LED3);
+#endif
+        
       }
     }
     if (global_time_cnt %5 == 0) STM_EVAL_LEDToggle(LED2);
