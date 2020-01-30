@@ -354,6 +354,8 @@
                     <state>$PROJ_DIR$\..\lib\STM32F4xx_StdPeriph_Driver\inc</state>
                     <state>$PROJ_DIR$\..\lib\CMSIS\Include</state>
                     <state>$PROJ_DIR$\..\lib</state>
+                    <state>$PROJ_DIR$\..\lib\STM3240_41_G_EVAL</state>
+                    <state>$PROJ_DIR$\..\lib\Common</state>
                 </option>
                 <option>
                     <name>CCStdIncCheck</name>

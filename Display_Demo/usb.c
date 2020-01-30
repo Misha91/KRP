@@ -209,6 +209,17 @@ void usb_init(void){
   //OTG_FS_DCFG &= ~(1<<2);
 }
 
+void set_config()
+{   
+  //while (*( (volatile unsigned long *) OTG_FS_GRSTCTL) && (1<<5));
+  *( (volatile unsigned long *) OTG_FS_GRSTCTL) |=  (1 << 6);
+  *( (volatile unsigned long *) OTG_FS_DIEPTXFx) = (0x40<<16);
+  *( (volatile unsigned long *) OTG_FS_DIEPCTL1) = (1<<27) | (1 << 22) | (0x3 << 18) | (1<<15) | (4); // 64 bytes max packet size, active EP, EP type Interrupt (11), TxFIFO num 1
+  //*( (volatile unsigned long *) OTG_FS_DIEPCTL1) |= (1<<28); // SD0PID
+  *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= (1<<1); //Switch on IN EP for EP1
+  
+}
+
 void usb_reset_routine()
 {
    
@@ -233,6 +244,7 @@ void usb_reset_routine()
    
     *( (volatile unsigned long *) OTG_FS_DOEPTSIZ0) |= (1 << 29) | (1 << 30); 
     //*( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 31;
+    set_config();
 }
 
 void usb_enum_done_routine()
@@ -270,22 +282,24 @@ uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
   }
   
   
-  if ((*( (volatile unsigned long *) (OTG_FS_DTXFSTS0 + ep*0x20)) & 0xFFFF)*4 > length)
+  if ((*( (volatile unsigned long *) (OTG_FS_DTXFSTS0 | ep*0x20)) & 0xFFFF)*4 > length)
   {
     
-    *( (volatile unsigned long *) (OTG_FS_DIEPTSIZ0 + ep*0x20)) = (1<<19) | length ;
+    *( (volatile unsigned long *) (OTG_FS_DIEPTSIZ0 | ep*0x20)) = (1<<19) | length ;
+    
     if (ep == 1)
     {
-      *( (volatile unsigned long *) (OTG_FS_DIEPTSIZ0 + ep*0x20)) |= (1<<29);
-      *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 + ep*0x20)) ^= (1<<26);
+      *( (volatile unsigned long *) (OTG_FS_DIEPTSIZ0 | ep*0x20)) &= ~(1<<30);
+      *( (volatile unsigned long *) (OTG_FS_DIEPTSIZ0 | ep*0x20)) |= (1<<29);
+      //*( (volatile unsigned long *) (OTG_FS_DIEPCTL0 | ep*0x20)) ^= (1<<26);
     }
 
-    *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 + ep*0x20)) |= (1<<26);
-    *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 + ep*0x20)) |= (1<<31);
+    *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 | ep*0x20)) |= (1<<26);
+    *( (volatile unsigned long *) (OTG_FS_DIEPCTL0 | ep*0x20)) |= (1<<31);
     
-    for (n = 0; n <= (int)(length/4); n++)
+    for (n = 0; n < ((int)(length/4) + (length%4 != 0 ? 1 : 0)); n++)
     {
-      *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000*(ep + 1))) = TxBuffer[n];
+      *( (volatile unsigned long *) (USB_BASE_ADDRESS | (0x1000*(ep + 1)))) = TxBuffer[n]; //
     }
 
     return 1;
@@ -293,16 +307,7 @@ uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
   return 0; 
 }
 
-void set_config()
-{   
-  //while (*( (volatile unsigned long *) OTG_FS_GRSTCTL) && (1<<5));
-  *( (volatile unsigned long *) OTG_FS_GRSTCTL) |=  (1 << 6);
-  *( (volatile unsigned long *) OTG_FS_DIEPCTL1) |= (1<<28); // SD0PID
-  *( (volatile unsigned long *) OTG_FS_DIEPCTL1) |= (1<<31) | (1 << 22) | (0x3 << 18) | (1<<15) | (4); // 64 bytes max packet size, active EP, EP type Interrupt (11), TxFIFO num 1
 
-  *( (volatile unsigned long *) OTG_FS_DAINTMSK) |= (1<<1); //Switch on IN EP for EP1
-  *( (volatile unsigned long *) OTG_FS_DIEPTXFx) = (0x40<<16);
-}
 
 uint8_t process_cmnd(struct setup_packet * stp_pck)
 {
@@ -345,14 +350,14 @@ uint8_t process_cmnd(struct setup_packet * stp_pck)
   else if  (stp_pck->bRequest == 9 && index == 1)  
   { 
  
-    set_config();
+    
     return send_data(0, 0, 0);  
   }
   
   else if  (stp_pck->bmRequestType == 0x21)  
   { 
  
-    *( (volatile unsigned long *) OTG_FS_DIEPCTL0 + 0x20) |= (1<<27);
+    //*( (volatile unsigned long *) OTG_FS_DIEPCTL0 + 0x20) |= (1<<27);
 
     return send_data(0, 0, 0);  
   }
@@ -373,7 +378,7 @@ volatile uint8_t add_set = 0;
 void OTG_FS_IRQHandler(void){
   static struct setup_packet stp_pck;
   char buffer [50];
-
+  static uint8_t suspend = 0;
   static int fifo_num = 0;
   static uint8_t allowedReplies = 10;
   static uint8_t packetProcessed = 0;
@@ -383,14 +388,30 @@ void OTG_FS_IRQHandler(void){
   int n, k, c;
   unsigned long stsStorage = *( (volatile unsigned long *) OTG_FS_GINTSTS);
   
-  n=sprintf (buffer, "%#08x", (*( (volatile unsigned long *) OTG_FS_DCFG) >> 4) & 0x7F); 
-  LCD_printLine(2,0, buffer, n);
+  if (suspend == 0)
+  {
+    
+    n=sprintf (buffer, "%#08x", (*( (volatile unsigned long *) OTG_FS_DCFG) >> 4) & 0x7F); 
+    LCD_printLine(2,0, buffer, n);
+  }
+  else
+  {
+    n=sprintf (buffer, "USB SUSPEND!"); 
+    LCD_printLine(2,0, buffer, n);
+  }
   
-  
-
-  
+ if (stsStorage & USBSUSPM)
+ {
+   suspend = 1;
+   usb_configured = 0;
+   *( (volatile unsigned long *) OTG_FS_GINTSTS) |= USBSUSPM;
+ }
   if (stsStorage & USBRST)
   {
+    fifo_num = 0;
+    packetProcessed = 0;
+    usb_configured = 0;
+    
     usb_reset_routine();    
     n=sprintf (buffer, "U"); 
     LCD_printLine(0,pos, buffer, n);
@@ -416,6 +437,7 @@ void OTG_FS_IRQHandler(void){
   
   if (stsStorage & RXFLVL)
   {
+    suspend = 0;
     unsigned long regMskStorage = *( (volatile unsigned long *) OTG_FS_GINTMSK);
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = 0;
     uint32_t init_grxstsp = *((volatile unsigned long *) OTG_FS_GRXSTSP);
