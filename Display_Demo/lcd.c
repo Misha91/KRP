@@ -435,7 +435,7 @@ void LCD_printLine(uint16_t row, uint16_t col, char* line, int len){
   
   int i;
   row = row*height;
-  //LCD_ClearLine(row);
+  LCD_ClearLine(row);
   col = 320-col*LCD_GetFont()->Width;
   
   for (i=0; i<len; i++){

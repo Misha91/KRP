@@ -220,14 +220,8 @@ void usb_reset_routine()
 void usb_enum_done_routine()
 {
   unsigned enumSpeed = (*( (volatile unsigned long *) OTG_FS_DSTS) & 0x6) >> 1;
-  *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(0x3); 
-  /*
-  00: 64 bytes
-  01: 32 bytes
-  10: 16 bytes
-  11: 8 bytes */
+  *( (volatile unsigned long *) OTG_FS_DIEPCTL0) &= ~(0x3); //  00: 64 bytes
 }
-
 
 
 uint8_t send_data(uint8_t * data_buf, uint8_t length, uint8_t ep)
@@ -450,148 +444,33 @@ void OTG_FS_IRQHandler(void){
         readBuffer[fifo_num] = *( (volatile unsigned long *) (USB_BASE_ADDRESS + 0x1000));      
         fifo_num++;
       }
-            
+ #ifdef DEBUG               
       n=sprintf (buffer, "S"); 
       LCD_printLine(0,pos, buffer, n);
-      pos ++;      
+      pos ++;   
+#endif
     }
     
     *( (volatile unsigned long *) OTG_FS_GINTMSK) = regMskStorage;
 
   }
-        
+#ifdef DEBUG           
    n=sprintf (buffer, "OTG_FS_GINTSTS %#08x", stsStorage); 
    LCD_printLine(20,0, buffer, n);
   
    n=sprintf (buffer, "tmp %d", tmp); 
    LCD_printLine(19,0, buffer, n);
-         
+#endif
    if (stsStorage & IEPINT)
    {
     unsigned long daint = *( (volatile unsigned long *) OTG_FS_DAINT);
-    n=sprintf (buffer, "OTG_FS_DAINT %#08x", daint); 
+  
     if (*( (volatile unsigned long *) OTG_FS_DIEPINT0) & (1<<0))
-    {          
-        
-      //tmp++;
+    {  
       *( (volatile unsigned long *) OTG_FS_DIEPINT0) |= (1<<7);
     }
    }
-   
-   /*
-   if (stsStorage & SOFM)
-   {
-     unsigned long dsts = *( (volatile unsigned long *) OTG_FS_DSTS);
-     //n=sprintf (buffer, "OTG_FS_DSTS %#08x", dsts); 
-     //LCD_printLine(21,0, buffer, n);
-     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= SOFM;
-    //n=sprintf (buffer, "S"); 
-    //LCD_printLine(0,pos, buffer, n);
-    //pos ++;
-   }
-   
-   if (stsStorage & ESUSPM)
-   {
-     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= ESUSPM;
-    //n=sprintf (buffer, "1"); 
-    //LCD_printLine(0,pos, buffer, n);
-    //pos ++;
-   }
-   
-   if (stsStorage & USBSUSPM)
-   {
-     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= USBSUSPM;
-    n=sprintf (buffer, "2"); 
-    LCD_printLine(0,pos, buffer, n);
-    pos ++;
-   }
-   
-   if (stsStorage & OTGINT)
-   {
-
-     unsigned long gotgint = *( (volatile unsigned long *) OTG_FS_GOTGINT);
-     n=sprintf (buffer, "OTG_FS_GOTGINT %#08x", gotgint); 
-     LCD_printLine(20,0, buffer, n);
-     *( (volatile unsigned long *) OTG_FS_GOTGINT) |= (gotgint);
-     *( (volatile unsigned long *) OTG_FS_GINTSTS) |= OTGINT;
-    //n=sprintf (buffer, "3"); 
-    //LCD_printLine(0,pos, buffer, n);
-    //pos ++;
-   }
-   
-   if (stsStorage & IEPINT)
-   {
-    unsigned long daint = *( (volatile unsigned long *) OTG_FS_DAINT);
-    n=sprintf (buffer, "OTG_FS_DAINT %#08x", daint); 
-    if (*( (volatile unsigned long *) OTG_FS_DIEPINT0) & (1<<0))
-    {   
-        if (needToChangeAddr)
-        {
-          needToChangeAddr = 0;
-          *( (volatile unsigned long *) OTG_FS_DCFG) &= ~(0x7F0);
-          *( (volatile unsigned long *) OTG_FS_DCFG) |= newAddr << 4;
-          //n=sprintf (buffer, "%d %#08x", newAddr, OTG_FS_DCFG); 
-          //LCD_printLine(5,0, buffer, n);
-          
-        }
-        
-      tmp++;
-      *( (volatile unsigned long *) OTG_FS_DIEPINT0) |= (1<<7);
-    }
-   }
-   
-   if (stsStorage & OEPINT)
-   {
-    unsigned long daint = *( (volatile unsigned long *) OTG_FS_DAINT);
-    n=sprintf (buffer, "OTG_FS_DAINT %#08x", daint); 
- 
     
-    LCD_printLine(22,0, buffer, n);
-    if ((*((volatile unsigned long *) OTG_FS_DOEPINT0)) & (0x8))
-    {
-      int stp_cnt = (*((volatile unsigned long *) OTG_FS_DOEPTSIZ0) >> 29) & 0x3;
-      k=sprintf (buffer, "%d", stp_cnt); 
-      LCD_printLine(18,0, buffer, k);        
-
-      c=sprintf (buffer, "%#8x",readBuffer[4 - 2*stp_cnt]); 
-      LCD_printLine(15,0, buffer, c);
-      c=sprintf (buffer, "%#8x",readBuffer[5 - 2*stp_cnt]); 
-      LCD_printLine(16,0, buffer, c);
-      /*if(allowedReplies--)
-      {
-        struct setup_packet stp_pck;
-        stp_pck.bmRequestType = readBuffer[4 - 2*stp_cnt] & 0xFF;
-        stp_pck.bRequest = (readBuffer[4 - 2*stp_cnt] >> 8) & 0xFF;
-        stp_pck.wValue = (readBuffer[4 - 2*stp_cnt] >> 16) & 0xFFFF;
-        stp_pck.wIndex = readBuffer[5 - 2*stp_cnt] & 0xFFFF;
-        stp_pck.wLength = (readBuffer[5 - 2*stp_cnt] >> 16) & 0xFFFF;
-        uint8_t addr =  ((*( (volatile unsigned long *) OTG_FS_DCFG) >> 4) & 0x7F);
-        uint8_t res = send_desc(&stp_pck);
-        
-        //if (stp_pck.bRequest != 6 && stp_pck.bRequest != 5)
-        if(1)
-        {
-          c=sprintf (buffer, "%d %d %#02x %#02x %#02x %#04x %#04x %#04x", res, last_sent, addr, stp_pck.bmRequestType, stp_pck.bRequest, stp_pck.wValue, stp_pck.wIndex, stp_pck.wLength); 
-          LCD_printLine(3+packetProcessed,0, buffer, c);
-          packetProcessed++;
-        }
-        
-        n=sprintf (buffer, "S"); 
-        LCD_printLine(0,pos, buffer, n);
-        pos ++;
-        
-      }*/
-              
-   //   *((volatile unsigned long *) OTG_FS_DOEPINT0) |= (0x8);
-   //   *( (volatile unsigned long *) OTG_FS_DOEPCTL0) |= 1 << 26; //CNAK
-      //tmp++;
-    //}
-
-    //n=sprintf (buffer, "4"); 
-    //LCD_printLine(0,pos, buffer, n);
-    //pos ++;
-    //}
-   
   
    return;
 }
