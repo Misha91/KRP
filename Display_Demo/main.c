@@ -118,28 +118,32 @@ void TIM2_IRQHandler(void)
       
       switch(IOE_JoyStickGetState())
       {
-        case JOY_SEL:
-   
+        case JOY_SEL:   
           report.but2 = 1;        
           break;
+          
         case JOY_DOWN:
           if (!report.but1)
             report.y += 1; 
           else
             report.wheel -= (sent_num % 3 == 0) ? 1 : 0;
           break;
+          
         case JOY_LEFT:
           report.x -= 1;
           break;
+          
         case JOY_RIGHT:
           report.x += 1;
           break;
+          
         case JOY_UP:  
           if (!report.but1)
             report.y -= 1;
           else
             report.wheel += (sent_num % 3 == 0) ? 1 : 0;
           break;
+          
         default: break;
       }  
       
