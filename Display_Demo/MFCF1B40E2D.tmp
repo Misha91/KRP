@@ -5,6 +5,7 @@
 #include "stm324xg_eval_ioe.c"
 #include "stm324xg_eval.c"
 
+
 uint32_t global_time_cnt = 0;
 void timer_init(void);
 
@@ -32,7 +33,6 @@ void clk_init()
 
 int main()
 {
-  
   clk_init(); 
   LCD_Init();  
   LCD_SetFont(&Font8x8); 
@@ -42,9 +42,10 @@ int main()
   
   STM_EVAL_PBInit(BUTTON_TAMPER, BUTTON_MODE_GPIO);
   STM_EVAL_PBInit(BUTTON_KEY, BUTTON_MODE_GPIO);
+  
   while(1)
   {
-
+ 
   }
   
   return 0;
@@ -66,8 +67,8 @@ void timer_init(void)
   NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&NVIC_InitStructure);
 
-  TIM_TimeBaseStructure.TIM_Period = 256; //256
-  TIM_TimeBaseStructure.TIM_Prescaler = 2048;//1024
+  TIM_TimeBaseStructure.TIM_Period = 256;
+  TIM_TimeBaseStructure.TIM_Prescaler = 1024;
   TIM_TimeBaseStructure.TIM_ClockDivision = 0;
   TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
   TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
@@ -82,8 +83,9 @@ void TIM2_IRQHandler(void)
 {
   static unsigned char buffer[50];
   static int n;
-  static uint8_t sent_num = 0;
 
+  static uint8_t last_pressed = 0;
+  static uint8_t sent_num = 0;
   if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) 
   {
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
@@ -114,22 +116,32 @@ void TIM2_IRQHandler(void)
           report.y -= 1;
           break;
         default: break;
-      }  
+      }
+      
+  
       
       if (sent_num % 5 == 0)
       {
+
         buffer[0] = report.but0 | (report.but1 << 1) | (report.but2 << 2) | (report.but3 << 3);
         buffer[1] = report.x;
         buffer[2] = report.y;
-        buffer[3] = 0;
-      
+        buffer[3] = 0;      
+                
+        if (buffer[0] || buffer[1] || buffer[2] || buffer[3])
+        {
+          send_data(buffer, 4, 1);
+          memset(&report, 0, sizeof(struct report_struct));
+        }       
         send_data(buffer, 4, 1);
-        memset(&report, 0, sizeof(struct report_struct));                  
+        memset(&report, 0, sizeof(struct report_struct));
       }
       
       sent_num++;
+
       n=sprintf (buffer, "%d", sent_num); 
-      LCD_printLine(22,0, buffer, n);     
+      LCD_printLine(22,0, buffer, n);
+
     }
   }
 

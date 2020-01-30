@@ -15,8 +15,9 @@
 
 #define OTG_FS_HNPTXFSIZ (USB_BASE_ADDRESS + 0x028)
 #define OTG_FS_GCCFG (USB_BASE_ADDRESS + 0x038)
-
+#define OTG_FS_DIEPTXFx (USB_BASE_ADDRESS +  0x104)
 #define OTG_FS_DOEPCTL0 (USB_BASE_ADDRESS + 0xB00)
+
 #define OTG_FS_DOEPINT0 (USB_BASE_ADDRESS + 0xB08)
 
 
@@ -30,6 +31,8 @@
 #define OTG_FS_DAINTMSK (USB_BASE_ADDRESS + 0x81C)
 #define OTG_FS_DIEPCTL0 (USB_BASE_ADDRESS + 0x900)
 #define OTG_FS_DIEPINT0 (USB_BASE_ADDRESS + 0x908)
+
+#define OTG_FS_DIEPCTL1 (USB_BASE_ADDRESS + 0x900 + 0x20)
 
 #define OTG_FS_DIEPTSIZ0 (USB_BASE_ADDRESS + 0x910)
 #define OTG_FS_DTXFSTS0 (USB_BASE_ADDRESS + 0x918)
@@ -58,10 +61,29 @@ volatile __no_init unsigned long REG@ADDRESS
 #define IEPINT (1<<18)
 #define NPTXFE (1<<5)
 
-struct struct_usb
-{
- volatile unsigned long reg1;
- volatile unsigned long reg2;
+
+
+
+
+struct report_struct { 
+    unsigned char but0 : 1; 
+    unsigned char but1 : 1;
+    unsigned char but2 : 1;
+    unsigned char but3 : 1;
+    unsigned char but4 : 1;
+    unsigned char notUsed : 3;
+    char x : 8;
+    char y : 8;
+    char wheel : 8;
+
+}; 
+
+struct setup_packet {
+  uint8_t bmRequestType;
+  uint8_t bRequest;
+  uint16_t wValue;
+  uint16_t wIndex;
+  uint16_t wLength;
 };
 
 
