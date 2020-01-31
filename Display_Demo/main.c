@@ -97,7 +97,7 @@ void TIM2_IRQHandler(void)
   static unsigned char buffer[50];
   static int n;
   static uint8_t sent_num = 0;
-  static uint8_t last_was_zero = 1;
+  static uint8_t last_was_zero = 0;
   static uint8_t last_wheel = 0;
   if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) 
   {
